@@ -1,4 +1,4 @@
-.ipynb_checkpoints
-*/.ipynb_checkpoints/*
-.hdf5
-.tif
+*.ipynb_checkpoints
+*.hdf5
+*.tif
+*/README.md
