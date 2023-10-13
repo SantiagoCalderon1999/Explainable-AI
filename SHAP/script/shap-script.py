@@ -18,7 +18,7 @@ results_dir = 'results'
 min_expl_dir = 'minimal_explanation'
 
 def perform_parallel_shap_analysis(img_dict):
-    pool = Pool(processes=2)
+    pool = Pool(processes=30)
     pool.map(perform_individual_shap_analysis, img_dict.items())
 
 def perform_individual_shap_analysis(img_item):
@@ -29,7 +29,7 @@ def perform_individual_shap_analysis(img_item):
     masker = shap.maskers.Image(mask, shape=img.shape)
     explainer=shap.Explainer(model, masker, output_names=classes, seed = 42)
     plt.clf()
-    results = explainer(np.expand_dims(img, axis = 0), max_evals = 10, batch_size = 50, outputs=shap.Explanation.argsort.flip[:1])
+    results = explainer(np.expand_dims(img, axis = 0), max_evals = 2000, batch_size = 50, outputs=shap.Explanation.argsort.flip[:1])
     shap.image_plot(results, show = False)
     plt.savefig(os.path.join(results_dir, name), dpi=500, bbox_inches='tight')
     plt.close()
