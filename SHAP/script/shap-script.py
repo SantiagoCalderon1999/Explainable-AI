@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 from timeit import default_timer as timer
 from multiprocessing import Pool
 import logging
-import pandas as pd
+from csv import writer
 
 # Configure logger
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -45,6 +45,11 @@ results_dir = 'results'
 min_expl_dir = 'minimal_explanation'
 shap_array = []
 
+with open('shap_values.csv', 'w', newline='') as f_object:
+    writer_object = writer(f_object)
+    writer_object.writerow([ 'Image name', 'Shap values' ])
+    f_object.close()
+    
 def perform_parallel_shap_analysis(img_dict):
     pool = Pool(processes=120)
     pool.map(perform_individual_shap_analysis, img_dict.items())
@@ -66,8 +71,11 @@ def perform_individual_shap_analysis(img_item):
     plt.close()
 
     #Save results
-    shap_array.append({'Name': name, 'Shap_values': results.data[0]})
-    pd.DataFrame(shap_array).to_csv('shap_values.csv')
+    with open('shap_values.csv', 'a', newline='') as f_object:
+        writer_object = writer(f_object)
+        writer_object.writerow([ name, results.data[0] ])
+        f_object.close()
+    
     # Extract minimal explanation
     average = (results.data[0, :, :, 0] + results.data[0, :, :, 1] + results.data[0, :, :, 2]) / 3
     levels = np.flip(np.unique(average))
@@ -104,6 +112,10 @@ if __name__ == '__main__':
 
     folder_path = 'positive/image/'
     min_expl = min_expl_dir + '/'
+    
+    # Create required folders
+    create_directory_if_not_exists(results_dir)
+    create_directory_if_not_exists(min_expl_dir)
 
     image_files = [f for f in os.listdir(folder_path) if (f.lower().endswith('.tif') and f.lower().startswith('tcga'))]
     finished_image_files = [f for f in os.listdir(min_expl) if (f.lower().endswith('.tif') and f.lower().startswith('tcga'))]
@@ -127,11 +139,7 @@ if __name__ == '__main__':
     img_dict = {name: img for name, img in zip(img_name, img_array)}
     shap.initjs()
 
-    # Create required folders
-    create_directory_if_not_exists(results_dir)
-    create_directory_if_not_exists(min_expl_dir)
-
     start = timer()
     perform_parallel_shap_analysis(img_dict)
-    logger.info("Time taken: ", str(timer()-start))
+    logger.info("Time taken: " + str(timer()-start))
     logger.info("----------------------------------------")
