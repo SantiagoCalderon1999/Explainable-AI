@@ -119,8 +119,9 @@ if __name__ == '__main__':
 
     image_files = [f for f in os.listdir(folder_path) if (f.lower().endswith('.tif') and f.lower().startswith('tcga'))]
     finished_image_files = [f for f in os.listdir(min_expl) if (f.lower().endswith('.tif') and f.lower().startswith('tcga'))]
+    results_image_files = [f for f in os.listdir(results_dir) if (f.lower().endswith('.tif') and f.lower().startswith('tcga'))]
     
-    image_files = [x for x in image_files if x not in finished_image_files]
+    image_files = [x for x in image_files if (x not in finished_image_files) or (x not in results_image_files)]
     img_array = np.empty([len(image_files),256,256,3])
     img_name = []
     for counter, filename in enumerate(image_files):
