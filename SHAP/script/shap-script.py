@@ -39,15 +39,13 @@ logger.info(f"Current CPU Frequency: {cpu_frequency_ghz/1e3:.2f} GHz")
 
 logger.info(f"Current core count: {multiprocessing.cpu_count()}")
 
-mask = 'blur(64,64)'
-classes = ["No tumour", "Tumour"]
 results_dir = 'results'
 min_expl_dir = 'minimal_explanation'
-shap_array = []
+np.set_printoptions(threshold=np.inf)
 
 with open('shap_values.csv', 'w', newline='') as f_object:
     writer_object = writer(f_object)
-    writer_object.writerow([ 'Image name', 'Shap values' ])
+    writer_object.writerow([ 'ImageName', 'ShapValues' ])
     f_object.close()
     
 def perform_parallel_shap_analysis(img_dict):
@@ -55,6 +53,8 @@ def perform_parallel_shap_analysis(img_dict):
     pool.map(perform_individual_shap_analysis, img_dict.items())
 
 def perform_individual_shap_analysis(img_item):
+    mask = 'blur(64,64)'
+    classes = ["No tumour", "Tumour"]
     name, img = img_item
     logger.info("Starting image " + str(name))
 
@@ -65,7 +65,7 @@ def perform_individual_shap_analysis(img_item):
     masker = shap.maskers.Image(mask, shape=img.shape)
     explainer=shap.Explainer(model, masker, output_names=classes, seed = 42)
     plt.clf()
-    results = explainer(np.expand_dims(img, axis = 0), max_evals = 2000, batch_size = 50, outputs=shap.Explanation.argsort.flip[:1])
+    results = explainer(np.expand_dims(img, axis = 0), max_evals = 10, batch_size = 50, outputs=shap.Explanation.argsort.flip[:1])
     shap.image_plot(results, show = False)
     plt.savefig(os.path.join(results_dir, name), dpi=500, bbox_inches='tight')
     plt.close()
@@ -73,11 +73,11 @@ def perform_individual_shap_analysis(img_item):
     #Save results
     with open('shap_values.csv', 'a', newline='') as f_object:
         writer_object = writer(f_object)
-        writer_object.writerow([ name, results.data[0] ])
+        writer_object.writerow([ name, np.array2string(results.values.flatten()).replace('\n', '') ])
         f_object.close()
     
     # Extract minimal explanation
-    average = (results.data[0, :, :, 0] + results.data[0, :, :, 1] + results.data[0, :, :, 2]) / 3
+    average = (results.values[0, :, :, 0, 0] + results.values[0, :, :, 1, 0] + results.values[0, :, :, 2, 0]) / 3
     levels = np.flip(np.unique(average))
     masks = np.empty([256,256,3])
     logger.info("Start extracting minimal explanation for "+ str(name))
@@ -86,9 +86,11 @@ def perform_individual_shap_analysis(img_item):
         pixels = np.where(average == level)
         masks[pixels[0], pixels[1], :] = True
         min_expl = np.where(masks, img, 0)
+        path_to_model = "clf-resnet-weights.hdf5"
+        model = tf.keras.models.load_model(path_to_model)
         pre = model.predict(np.expand_dims(min_expl, axis=0), verbose=0)
         argmax = np.argmax(pre, axis = 1)
-        logger.info("Pred: " + str(pre))
+        logger.info("Pred for " + str(name) + " : " + str(pre))
         if (argmax == 1 and pre[0][argmax] > 0.5):
             break
     logger.info("Finished extracting minimal explanation for "+ str(name))
