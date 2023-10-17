@@ -81,13 +81,13 @@ def perform_individual_shap_analysis(img_item):
     levels = np.flip(np.unique(average))
     masks = np.empty([256,256,3])
     logger.info("Start extracting minimal explanation for "+ str(name))
+    min_expl = []
+    masks = np.empty([256,256,3])
     for count, level in enumerate(levels):
         logger.info("Level number: " + str(count))
         pixels = np.where(average == level)
         masks[pixels[0], pixels[1], :] = True
         min_expl = np.where(masks, img, 0)
-        path_to_model = "clf-resnet-weights.hdf5"
-        model = tf.keras.models.load_model(path_to_model)
         pre = model.predict(np.expand_dims(min_expl, axis=0), verbose=0)
         argmax = np.argmax(pre, axis = 1)
         logger.info("Pred for " + str(name) + " : " + str(pre))
