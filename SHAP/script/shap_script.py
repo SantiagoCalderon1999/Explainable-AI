@@ -8,9 +8,7 @@ import numpy as np
 import tensorflow as tf
 from matplotlib import pyplot as plt
 from timeit import default_timer as timer
-from multiprocessing import Pool
 import logging
-from csv import writer
 
 import sys
 
