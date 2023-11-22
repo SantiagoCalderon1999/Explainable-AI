@@ -12,8 +12,6 @@ import shap
 import tensorflow as tf
 from matplotlib import pyplot as plt
 
-# Get command line arguments
-
 # Directory where the results are going to be saved
 results_dir = sys.argv[1]
 
@@ -29,36 +27,38 @@ folder_path = sys.argv[4]
 # Number of cores that are going to be used to run the process in parallel
 number_of_cores = int(sys.argv[5])
 
-# Configure logger
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# Logger utility
 logger = logging.getLogger('shap')
 
-# Get the total RAM in bytes
-total_ram = psutil.virtual_memory().total
 
-# Get the available RAM in bytes
-available_ram = psutil.virtual_memory().available
+def configure_output() -> None:
+    """
+    Configures logging output and numpy output
+    """
+    logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    np.set_printoptions(threshold=np.inf)
 
-# Convert bytes to gigabytes (GB)
-total_ram_gb = total_ram / (1024 ** 3)
-available_ram_gb = available_ram / (1024 ** 3)
+def print_system_information() -> None:
+    """
+    Prints current system information, including RAM, CPU frequency and core count
+    """
+    total_ram = psutil.virtual_memory().total
 
-logger.info("Total RAM: %.2f GB", total_ram_gb)
-logger.info("Available RAM: %.2f GB", available_ram_gb)
+    available_ram = psutil.virtual_memory().available
 
-# Get the current CPU frequency in Hertz
-cpu_frequency = psutil.cpu_freq()
+    total_ram_gb = total_ram / (1024 ** 3)
+    available_ram_gb = available_ram / (1024 ** 3)
 
-# Convert Hertz to gigahertz (GHz) for a more human-readable format
-cpu_frequency_ghz = cpu_frequency.current
+    logger.info("Total RAM: %.2f GB", total_ram_gb)
+    logger.info("Available RAM: %.2f GB", available_ram_gb)
 
-logger.info("Current CPU Frequency: %.2f GHz", cpu_frequency_ghz/1e3)
 
-logger.info("Current core count: %d", multiprocessing.cpu_count())
+    cpu_frequency = psutil.cpu_freq()
+    cpu_frequency_ghz = cpu_frequency.current
 
-np.set_printoptions(threshold=np.inf)
-
+    logger.info("Current CPU Frequency: %.2f GHz", cpu_frequency_ghz/1e3)
+    logger.info("Current core count: %d", multiprocessing.cpu_count())
 
 def perform_parallel_shap_analysis(img_dict: dict) -> None:
     """
@@ -94,7 +94,7 @@ def perform_individual_shap_analysis(img_item) -> None:
     plt.savefig(os.path.join(results_dir, name), bbox_inches='tight')
     plt.close()
 
-    # Extract minimal explanation
+    # Extract explanation
     average = (results.values[0, :, :, 0, 0] + 
                results.values[0,:, :, 1, 0] + 
                results.values[0, :, :, 2, 0]) / 3
@@ -115,7 +115,7 @@ def perform_individual_shap_analysis(img_item) -> None:
             break
     logger.info("Finished extracting minimal explanation for %s", str(name))
 
-    # Save minimal explanation
+    # Save explanation
     cv2.imwrite(os.path.join(min_expl_dir, name),
                 (min_expl * 255).astype(np.uint8))
 
@@ -135,22 +135,24 @@ def create_directory_if_not_exists(dirname: str) -> None:
 
 
 if __name__ == '__main__':
-
-    min_expl = min_expl_dir
+    configure_output()
+    print_system_information()
 
     # Create required folders
     create_directory_if_not_exists(results_dir)
     create_directory_if_not_exists(min_expl_dir)
 
+    # Check if there is a missing image in results_dir or min_expl_dir, which is not in results_dir
     image_files = [f for f in os.listdir(folder_path) if (
         f.lower().endswith('.tif') and f.lower().startswith('tcga'))]
-    finished_image_files = [f for f in os.listdir(min_expl) if (
+    finished_image_files = [f for f in os.listdir(min_expl_dir) if (
         f.lower().endswith('.tif') and f.lower().startswith('tcga'))]
     results_image_files = [f for f in os.listdir(results_dir) if (
         f.lower().endswith('.tif') and f.lower().startswith('tcga'))]
-
     image_files = [x for x in image_files if (
         x not in finished_image_files) or (x not in results_image_files)]
+    
+    # Read images
     img_array = np.empty([len(image_files), 256, 256, 3])
     img_name = []
     for counter, filename in enumerate(image_files):
@@ -167,8 +169,9 @@ if __name__ == '__main__':
     img_array = img_array.astype('float32')
     logger.info("Number of images: %s", str(len(image_files)))
     img_dict = {name: img for name, img in zip(img_name, img_array)}
+    
+    # Run Shap algorithm
     shap.initjs()
-
     start = timer()
     perform_parallel_shap_analysis(img_dict)
     logger.info("Time taken: %s", str(timer()-start))
