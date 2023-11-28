@@ -4,3 +4,6 @@
 *.png
 */README.md
 .vscode
+*.tar.gz
+*.rar
+*.csv
